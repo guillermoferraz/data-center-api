@@ -2,17 +2,22 @@ package controllers
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofrs/uuid"
+	"github.com/guillermoferraz/data-center-api/db"
+	"github.com/guillermoferraz/data-center-api/models"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
-	Id        string `json:"id"`
-	Firstname string `json:"firstname"`
-	Lastname  string `json:"lastname"`
-	Email     string `json:"email"`
-	Password  string `json:"password"`
+	Id         uuid.UUID `gorm:"type:uuid;primary_key;"`
+	Created_at time.Time `gorm:"<-:create"`
+	Firstname  string    `json:"firstname"`
+	Lastname   string    `json:"lastname"`
+	Email      string    `gorm:"not null;unique_index"`
+	Password   string    `json:"password"`
 }
 
 func UseUsersController(router fiber.Router) {
@@ -36,9 +41,29 @@ func UseUsersController(router fiber.Router) {
 
 		if firstname > 1 && lastname > 1 && email > 3 && pass > 7 {
 			fmt.Printf("%+v\n", reqBody)
-			return c.Status(200).JSON(fiber.Map{
-				"fistname": reqBody.Firstname,
-			})
+
+			/* save data */
+			uuid, err := uuid.NewV4()
+			if err != nil {
+				return err
+			}
+			created_at := time.Now()
+			user := User{uuid, created_at, reqBody.Firstname, reqBody.Lastname, reqBody.Email, string(hashedPassword)}
+			fmt.Println(reqBody.Email)
+
+			var model_user models.User
+
+			existEmail := db.DB.Find(&model_user, "email = ?", user.Email)
+			if existEmail.RowsAffected == 0 {
+				db.DB.Create(&user)
+				return c.Status(200).JSON(fiber.Map{
+					"message": "Register successfully",
+				})
+			} else {
+				return c.Status(409).JSON((fiber.Map{
+					"message": "The email entered alredy exists",
+				}))
+			}
 		}
 		return c.Status(400).JSON(fiber.Map{
 			"message": "Invalid received data",
