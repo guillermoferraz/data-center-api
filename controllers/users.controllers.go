@@ -2,12 +2,16 @@ package controllers
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofrs/uuid"
 	"github.com/guillermoferraz/data-center-api/db"
 	"github.com/guillermoferraz/data-center-api/models"
+	"github.com/joho/godotenv"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -19,8 +23,13 @@ type User struct {
 	Email      string    `gorm:"not null;unique_index"`
 	Password   string    `json:"password"`
 }
+type Claims struct {
+	Id uuid.UUID `gorm:"type:uuid"`
+	jwt.StandardClaims
+}
 
 func UseUsersController(router fiber.Router) {
+	loadEnv()
 	router.Post("/register", func(c *fiber.Ctx) error {
 		reqBody := User{}
 		if err := c.BodyParser(&reqBody); err != nil {
@@ -55,10 +64,27 @@ func UseUsersController(router fiber.Router) {
 
 			existEmail := db.DB.Find(&model_user, "email = ?", user.Email)
 			if existEmail.RowsAffected == 0 {
+
+				mySecret := os.Getenv("JWT_SECRET")
+				expirationTime := time.Now().Add(24 * time.Hour)
+				claims := &Claims{
+					Id: uuid,
+					StandardClaims: jwt.StandardClaims{
+						// In JWT, the expiry time is expressed as unix milliseconds
+						ExpiresAt: expirationTime.Unix(),
+					},
+				}
+				token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+				tokenString, err := token.SignedString([]byte(mySecret))
+				fmt.Println("error:", err)
+
 				db.DB.Create(&user)
 				return c.Status(200).JSON(fiber.Map{
 					"message": "Register successfully",
+					"status":  200,
+					"token":   tokenString,
 				})
+
 			} else {
 				return c.Status(409).JSON((fiber.Map{
 					"message": "The email entered alredy exists",
@@ -69,4 +95,10 @@ func UseUsersController(router fiber.Router) {
 			"message": "Invalid received data",
 		})
 	})
+}
+func loadEnv() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env")
+	}
 }
