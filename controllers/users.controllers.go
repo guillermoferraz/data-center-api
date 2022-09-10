@@ -23,10 +23,19 @@ type User struct {
 	Email      string    `gorm:"not null;unique_index"`
 	Password   string    `json:"password"`
 }
+
+type Login struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Token    string `json:"token"`
+}
+
 type Claims struct {
 	Id uuid.UUID `gorm:"type:uuid"`
 	jwt.StandardClaims
 }
+
+var model_user models.User
 
 func UseUsersController(router fiber.Router) {
 	loadEnv()
@@ -59,8 +68,6 @@ func UseUsersController(router fiber.Router) {
 			created_at := time.Now()
 			user := User{uuid, created_at, reqBody.Firstname, reqBody.Lastname, reqBody.Email, string(hashedPassword)}
 			fmt.Println(reqBody.Email)
-
-			var model_user models.User
 
 			existEmail := db.DB.Find(&model_user, "email = ?", user.Email)
 			if existEmail.RowsAffected == 0 {
@@ -95,7 +102,44 @@ func UseUsersController(router fiber.Router) {
 			"message": "Invalid received data",
 		})
 	})
+
+	/* Login */
+	router.Post("/login", func(c *fiber.Ctx) error {
+		reqBody := Login{}
+		if err := c.BodyParser(&reqBody); err != nil {
+			return err
+		}
+
+		existUser := db.DB.Find(&model_user, "email = ?", reqBody.Email)
+		password := reqBody.Password
+		fmt.Println(password)
+		if existUser.RowsAffected == 1 {
+
+			tokenString := reqBody.Token
+
+			isValidUser := isAuthorized(tokenString)
+			fmt.Println("is valid user:", isValidUser)
+			if isValidUser {
+				return c.Status(200).JSON(fiber.Map{
+					"message": "Login successfully",
+					"status":  200,
+				})
+			}
+
+			return c.Status(401).JSON(fiber.Map{
+				"message": "Invalid credentials",
+				"status":  401,
+			})
+		}
+
+		return c.Status(401).JSON(fiber.Map{
+			"message": "Invalid credentials",
+			"status":  401,
+		})
+
+	})
 }
+
 func loadEnv() {
 	err := godotenv.Load()
 	if err != nil {
