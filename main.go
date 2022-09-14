@@ -28,7 +28,8 @@ func main() {
 	app.Get("/ping", func(c *fiber.Ctx) error {
 		return c.SendString("pong")
 	})
-	controllers.UseUsersController(app)
+	controllers.UseAuthController(app)
+	controllers.UseUserController(app)
 	app.Listen(port)
 }
 

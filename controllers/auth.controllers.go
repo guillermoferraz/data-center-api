@@ -23,11 +23,17 @@ type User struct {
 	Email      string    `gorm:"not null;unique_index"`
 	Password   string    `json:"password"`
 }
+type ReturnUser struct {
+	Id        string `gorm:"type:uuid;primary_key;"`
+	Email     string `gorm:"not null;unique_index"`
+	Firstname string `json:"Firstname"`
+	Lastname  string `json:"Lastname"`
+	Token     string `json:"Token"`
+}
 
 type Login struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
-	Token    string `json:"token"`
 }
 
 type Claims struct {
@@ -37,7 +43,12 @@ type Claims struct {
 
 var model_user models.User
 
-func UseUsersController(router fiber.Router) {
+func CheckPasswordHashed(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
+}
+
+func UseAuthController(router fiber.Router) {
 	loadEnv()
 	router.Post("/register", func(c *fiber.Ctx) error {
 		reqBody := User{}
@@ -50,7 +61,6 @@ func UseUsersController(router fiber.Router) {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(string(hashedPassword))
 
 		firstname := len(reqBody.Firstname)
 		lastname := len(reqBody.Lastname)
@@ -58,7 +68,7 @@ func UseUsersController(router fiber.Router) {
 		pass := len(reqBody.Password)
 
 		if firstname > 1 && lastname > 1 && email > 3 && pass > 7 {
-			fmt.Printf("%+v\n", reqBody)
+			// fmt.Printf("%+v\n", reqBody)
 
 			/* save data */
 			uuid, err := uuid.NewV4()
@@ -72,24 +82,10 @@ func UseUsersController(router fiber.Router) {
 			existEmail := db.DB.Find(&model_user, "email = ?", user.Email)
 			if existEmail.RowsAffected == 0 {
 
-				mySecret := os.Getenv("JWT_SECRET")
-				expirationTime := time.Now().Add(24 * time.Hour)
-				claims := &Claims{
-					Id: uuid,
-					StandardClaims: jwt.StandardClaims{
-						// In JWT, the expiry time is expressed as unix milliseconds
-						ExpiresAt: expirationTime.Unix(),
-					},
-				}
-				token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-				tokenString, err := token.SignedString([]byte(mySecret))
-				fmt.Println("error:", err)
-
 				db.DB.Create(&user)
 				return c.Status(200).JSON(fiber.Map{
 					"message": "Register successfully",
 					"status":  200,
-					"token":   tokenString,
 				})
 
 			} else {
@@ -111,24 +107,27 @@ func UseUsersController(router fiber.Router) {
 		}
 
 		existUser := db.DB.Find(&model_user, "email = ?", reqBody.Email)
-		password := reqBody.Password
-		fmt.Println(password)
-		if existUser.RowsAffected == 1 {
-
-			tokenString := reqBody.Token
-
-			isValidUser := isAuthorized(tokenString)
-			fmt.Println("is valid user:", isValidUser)
-			if isValidUser {
-				return c.Status(200).JSON(fiber.Map{
-					"message": "Login successfully",
-					"status":  200,
-				})
+		isValidPass := CheckPasswordHashed(reqBody.Password, model_user.Password)
+		if existUser.RowsAffected == 1 && isValidPass {
+			mySecret := os.Getenv("JWT_SECRET")
+			expirationTime := time.Now().Add(24 * time.Hour)
+			claims := &Claims{
+				Id: uuid.UUID(model_user.Id),
+				StandardClaims: jwt.StandardClaims{
+					// In JWT, the expiry time is expressed as unix milliseconds
+					ExpiresAt: expirationTime.Unix(),
+				},
 			}
+			token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+			tokenString, err := token.SignedString([]byte(mySecret))
+			fmt.Println("error:", err)
 
-			return c.Status(401).JSON(fiber.Map{
-				"message": "Invalid credentials",
-				"status":  401,
+			dataReturned := ReturnUser{model_user.Id.String(), model_user.Email, model_user.Firstname, model_user.Lastname, tokenString}
+
+			return c.Status(200).JSON(fiber.Map{
+				"message": "Login successfully",
+				"status":  200,
+				"user":    dataReturned,
 			})
 		}
 
