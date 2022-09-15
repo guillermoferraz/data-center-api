@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/guillermoferraz/data-center-api/db"
 	"github.com/guillermoferraz/data-center-api/middleware"
@@ -29,10 +31,12 @@ func UseUserController(router fiber.Router) {
 		reqHeader := c.Request().Header.Peek("Authorization")
 		token := string(reqHeader)
 		userId := middleware.UseIsAuthorized(token)
+		fmt.Println("get user:", userId)
 		if userId != "Error" {
-			var user models.User
+			user := models.User{}
 			db.DB.Find(&user, "id = ?", userId)
 			return c.Status(200).JSON(fiber.Map{
+				"status":    200,
 				"Id":        user.Id,
 				"Email":     user.Email,
 				"Firstname": user.Firstname,
@@ -41,6 +45,7 @@ func UseUserController(router fiber.Router) {
 		}
 		return c.Status(500).JSON(fiber.Map{
 			"message": "User not found",
+			"status":  409,
 		})
 	})
 

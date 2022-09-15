@@ -11,8 +11,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var model_user models.User
-
 func UseIsAuthorized(token string) string {
 	loadEnv()
 	var err error
@@ -28,6 +26,7 @@ func UseIsAuthorized(token string) string {
 		})
 		fmt.Println(tokenVerification)
 		fmt.Println(err)
+		model_user := models.User{}
 		for key, val := range claims {
 			if key == "Id" {
 				isValidToken := db.DB.Find(&model_user, "id = ?", val)

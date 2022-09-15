@@ -41,8 +41,6 @@ type Claims struct {
 	jwt.StandardClaims
 }
 
-var model_user models.User
-
 func CheckPasswordHashed(password, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
@@ -78,7 +76,7 @@ func UseAuthController(router fiber.Router) {
 			created_at := time.Now()
 			user := User{uuid, created_at, reqBody.Firstname, reqBody.Lastname, reqBody.Email, string(hashedPassword)}
 			fmt.Println(reqBody.Email)
-
+			model_user := models.User{}
 			existEmail := db.DB.Find(&model_user, "email = ?", user.Email)
 			if existEmail.RowsAffected == 0 {
 
@@ -105,9 +103,12 @@ func UseAuthController(router fiber.Router) {
 		if err := c.BodyParser(&reqBody); err != nil {
 			return err
 		}
-
+		fmt.Println(reqBody.Email)
+		model_user := models.User{}
 		existUser := db.DB.Find(&model_user, "email = ?", reqBody.Email)
+		fmt.Println("exist user:", existUser.RowsAffected)
 		isValidPass := CheckPasswordHashed(reqBody.Password, model_user.Password)
+		fmt.Println("is valid pass:", isValidPass)
 		if existUser.RowsAffected == 1 && isValidPass {
 			mySecret := os.Getenv("JWT_SECRET")
 			expirationTime := time.Now().Add(24 * time.Hour)
