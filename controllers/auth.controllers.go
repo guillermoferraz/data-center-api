@@ -89,11 +89,13 @@ func UseAuthController(router fiber.Router) {
 			} else {
 				return c.Status(409).JSON((fiber.Map{
 					"message": "The email entered alredy exists",
+					"status":  409,
 				}))
 			}
 		}
 		return c.Status(400).JSON(fiber.Map{
 			"message": "Invalid received data",
+			"status":  400,
 		})
 	})
 

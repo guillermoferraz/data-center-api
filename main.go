@@ -21,7 +21,8 @@ func main() {
 	db.DBConnection()
 
 	/* migrations tables */
-	db.DB.AutoMigrate(models.User{})
+	db.DB.AutoMigrate(&models.User{}, &models.Module{}, &models.Submodule{})
+
 	app := fiber.New()
 	app.Use(logger.New())
 	app.Use(cors.New())
@@ -30,6 +31,8 @@ func main() {
 	})
 	controllers.UseAuthController(app)
 	controllers.UseUserController(app)
+	controllers.UseModuleController(app)
+	controllers.UseSubmoduleController(app)
 	app.Listen(port)
 }
 
