@@ -60,7 +60,57 @@ func UseModuleController(router fiber.Router) {
 			return c.Status(200).JSON(modules)
 		}
 		return c.Status(500).JSON(fiber.Map{
-			"message": "",
+			"message": "Error on get modules",
+			"status":  500,
 		})
 	})
+	router.Delete("/module", func(c *fiber.Ctx) error {
+		moduleId := string(c.Request().URI().QueryString())
+		reqHeader := c.Request().Header.Peek("Authorization")
+		token := string(reqHeader)
+		userId := middleware.UseIsAuthorized(token)
+		if userId != "Error" {
+			user := models.User{}
+			modules := models.Module{}
+			submodules := models.Submodule{}
+			db.DB.Find(&user, "id = ?", userId)
+			db.DB.Unscoped().Delete(&modules, "Id = ?", moduleId)
+			db.DB.Unscoped().Delete(&submodules, "module_id = ?", moduleId)
+			return c.Status(200).JSON(fiber.Map{
+				"message": "Submodule deleted successfully",
+				"status":  200,
+			})
+		}
+		return c.Status(500).JSON(fiber.Map{
+			"message": "Error on delete submodule",
+			"status":  500,
+		})
+	})
+
+	router.Patch("/module/edit", func(c *fiber.Ctx) error {
+		reqBody := Module{}
+		if err := c.BodyParser(&reqBody); err != nil {
+			return err
+		}
+		reqHeader := c.Request().Header.Peek("Authorization")
+		token := string(reqHeader)
+		userId := middleware.UseIsAuthorized(token)
+		if userId != "Error" {
+			user := models.User{}
+			db.DB.Find(&user, "id = ?", userId)
+
+			created_at := time.Now()
+			module := Module{reqBody.Id, user.Id.String(), created_at, reqBody.Name, reqBody.Description, reqBody.Private}
+			db.DB.Model(&module).Where("Id = ?", reqBody.Id).Update("name", reqBody.Name).Update("description", reqBody.Description).Update("private", reqBody.Private)
+			return c.Status(200).JSON(fiber.Map{
+				"message": "Module updated successfully",
+				"status":  200,
+			})
+		}
+		return c.Status(500).JSON(fiber.Map{
+			"message": "Failed to update module",
+			"status":  500,
+		})
+	})
+
 }

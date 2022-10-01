@@ -10,11 +10,12 @@ import (
 type Submodule struct {
 	gorm.Model
 
-	Id          uuid.UUID `gorm:"type:uuid;primary_key"`
+	Id          uuid.UUID `gorm:"type:uuid;primary_key;"`
 	UserId      string
 	ModuleId    string
+	Name        string `gorm:"not null"`
+	Description string `gorm:"default:null"`
+	Private     bool   `gorm:"default:false"`
+	Content     string
 	Created_at  time.Time `gorm:"<-:create"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	Private     bool      `json:"private"`
 }
